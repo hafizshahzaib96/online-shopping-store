@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Shahzaib Shopping Store</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+
+    body{
+      margin:0;
+      font-family: 'Segoe UI', sans-serif;
+      background:#f1f3f6;
+    }
+
+    header{
+      background:#111;
+      color:white;
+      padding:15px 30px;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+    }
+
+    header button{
+      margin-left:10px;
+    }
+
+    button{
+      padding:6px 12px;
+      border:none;
+      border-radius:6px;
+      cursor:pointer;
+      background:#007bff;
+      color:white;
+    }
+
+    button:hover{
+      opacity:0.9;
+    }
+
+    .container{
+      padding:30px;
+    }
+
+    .hidden{
+      display:none;
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(250px,1fr));
+      gap:20px;
+    }
+
+    .card{
+      background:white;
+      padding:15px;
+      border-radius:10px;
+      box-shadow:0 4px 10px rgba(0,0,0,0.1);
+      text-align:center;
+    }
+
+    .card img{
+      width:100%;
+      height:180px;
+      object-fit:cover;
+      border-radius:8px;
+    }
+
+    input{
+      padding:8px;
+      width:100%;
+      margin:5px 0;
+      border-radius:6px;
+      border:1px solid #ccc;
+    }
+
+    .cart-box, .order-box, .admin-box{
+      background:white;
+      padding:20px;
+      margin-top:30px;
+      border-radius:10px;
+      box-shadow:0 4px 10px rgba(0,0,0,0.1);
+    }
+
+    .quantity{
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      gap:10px;
+    }
+
+  </style>
+</head>
+<body>
+
+<header>
+  <h2>Shahzaib's Online Shopping Store</h2>
+  <div>
+    <span id="userInfo"></span>
+    <button onclick="logout()">Logout</button>
+  </div>
+</header>
+
+<div class="container">
+
+  <!-- AUTH -->
+  <div id="authSection">
+    <h2>Login</h2>
+    <input id="loginEmail" placeholder="Email">
+    <input id="loginPassword" type="password" placeholder="Password">
+    <button onclick="login()">Login</button>
+
+    <h2>Register</h2>
+    <input id="regName" placeholder="Name">
+    <input id="regEmail" placeholder="Email">
+    <input id="regPassword" type="password" placeholder="Password">
+    <select id="regRole">
+      <option value="user">User</option>
+      <option value="admin">Admin</option>
+    </select>
+    <button onclick="register()">Register</button>
+  </div>
+
+  <!-- SHOP -->
+  <div id="shopSection" class="hidden">
+
+    <h2>Products</h2>
+    <div class="grid" id="productList"></div>
+
+    <!-- CART -->
+    <div class="cart-box">
+      <h3>Cart</h3>
+      <div id="cartItems"></div>
+      <h4>Total: $<span id="totalPrice">0</span></h4>
+      <button onclick="simulatePayment()">Pay Now</button>
+    </div>
+
+    <!-- ORDER HISTORY -->
+    <div class="order-box">
+      <h3>Order History</h3>
+      <div id="orderHistory"></div>
+    </div>
+
+    <!-- ADMIN PANEL -->
+    <div id="adminPanel" class="admin-box hidden">
+      <h3>Admin Panel</h3>
+      <input id="pName" placeholder="Product Name">
+      <input id="pPrice" type="number" placeholder="Price">
+      <input id="pImage" placeholder="Image URL">
+      <button onclick="addProduct()">Add Product</button>
+      <div id="adminProducts"></div>
+    </div>
+
+  </div>
+
+</div>
+
+<script>
+
+// ===== INITIAL DATA =====
+if(!localStorage.getItem("users")){
+  localStorage.setItem("users",JSON.stringify([]));
+}
+if(!localStorage.getItem("products")){
+  localStorage.setItem("products",JSON.stringify([
+    {id:1,name:"iPhone 15",price:1200,image:"https://images.unsplash.com/photo-1511707171634-5f897ff02aa9"},
+    {id:2,name:"Nike Shoes",price:200,image:"https://images.unsplash.com/photo-1542291026-7eec264c27ff"},
+    {id:3,name:"Dell Laptop",price:1500,image:"https://images.unsplash.com/photo-1517336714731-489689fd1ca8"}
+  ]));
+}
+if(!localStorage.getItem("cart")){
+  localStorage.setItem("cart",JSON.stringify([]));
+}
+if(!localStorage.getItem("orders")){
+  localStorage.setItem("orders",JSON.stringify([]));
+}
+
+// ===== REGISTER =====
+function register(){
+  let users=JSON.parse(localStorage.getItem("users"));
+  users.push({
+    name:regName.value,
+    email:regEmail.value,
+    password:regPassword.value,
+    role:regRole.value
+  });
+  localStorage.setItem("users",JSON.stringify(users));
+  alert("Registered!");
+}
+
+// ===== LOGIN =====
+function login(){
+  let users=JSON.parse(localStorage.getItem("users"));
+  let user=users.find(u=>u.email==loginEmail.value && u.password==loginPassword.value);
+  if(user){
+    localStorage.setItem("loggedInUser",JSON.stringify(user));
+    showShop();
+  }else{
+    alert("Invalid login");
+  }
+}
+
+// ===== LOGOUT =====
+function logout(){
+  localStorage.removeItem("loggedInUser");
+  location.reload();
+}
+
+// ===== SHOW SHOP =====
+function showShop(){
+  authSection.classList.add("hidden");
+  shopSection.classList.remove("hidden");
+
+  let user=JSON.parse(localStorage.getItem("loggedInUser"));
+  userInfo.innerText="Welcome "+user.name;
+
+  if(user.role==="admin"){
+    adminPanel.classList.remove("hidden");
+  }
+
+  displayProducts();
+  displayCart();
+  displayOrders();
+}
+
+// ===== DISPLAY PRODUCTS =====
+function displayProducts(){
+  let products=JSON.parse(localStorage.getItem("products"));
+  productList.innerHTML="";
+  products.forEach(p=>{
+    productList.innerHTML+=`
+      <div class="card">
+        <img src="${p.image}">
+        <h3>${p.name}</h3>
+        <p>$${p.price}</p>
+        <button onclick="addToCart(${p.id})">Add to Cart</button>
+      </div>
+    `;
+  });
+}
+
+// ===== ADD TO CART =====
+function addToCart(id){
+  let cart=JSON.parse(localStorage.getItem("cart"));
+  let products=JSON.parse(localStorage.getItem("products"));
+  let item=cart.find(c=>c.id===id);
+
+  if(item){
+    item.quantity++;
+  }else{
+    let product=products.find(p=>p.id===id);
+    cart.push({...product,quantity:1});
+  }
+
+  localStorage.setItem("cart",JSON.stringify(cart));
+  displayCart();
+}
+
+// ===== DISPLAY CART =====
+function displayCart(){
+  let cart=JSON.parse(localStorage.getItem("cart"));
+  cartItems.innerHTML="";
+  let total=0;
+
+  cart.forEach((item,index)=>{
+    total+=item.price*item.quantity;
+    cartItems.innerHTML+=`
+      <div>
+        ${item.name} - $${item.price}
+        <div class="quantity">
+          <button onclick="changeQty(${index},-1)">-</button>
+          ${item.quantity}
+          <button onclick="changeQty(${index},1)">+</button>
+        </div>
+      </div>
+    `;
+  });
+
+  totalPrice.innerText=total;
+}
+
+// ===== CHANGE QUANTITY =====
+function changeQty(index,val){
+  let cart=JSON.parse(localStorage.getItem("cart"));
+  cart[index].quantity+=val;
+  if(cart[index].quantity<=0){
+    cart.splice(index,1);
+  }
+  localStorage.setItem("cart",JSON.stringify(cart));
+  displayCart();
+}
+
+// ===== PAYMENT SIMULATION =====
+function simulatePayment(){
+  let cart=JSON.parse(localStorage.getItem("cart"));
+  if(cart.length===0){
+    alert("Cart empty!");
+    return;
+  }
+
+  let orders=JSON.parse(localStorage.getItem("orders"));
+  orders.push({
+    date:new Date().toLocaleString(),
+    items:cart
+  });
+
+  localStorage.setItem("orders",JSON.stringify(orders));
+  localStorage.setItem("cart",JSON.stringify([]));
+  alert("Payment Successful! Order Placed.");
+  displayCart();
+  displayOrders();
+}
+
+// ===== DISPLAY ORDERS =====
+function displayOrders(){
+  let orders=JSON.parse(localStorage.getItem("orders"));
+  orderHistory.innerHTML="";
+  orders.forEach(o=>{
+    orderHistory.innerHTML+=`
+      <div>
+        <strong>${o.date}</strong>
+        <ul>
+          ${o.items.map(i=>`<li>${i.name} x${i.quantity}</li>`).join("")}
+        </ul>
+      </div>
+    `;
+  });
+}
+
+// ===== ADMIN ADD PRODUCT =====
+function addProduct(){
+  let products=JSON.parse(localStorage.getItem("products"));
+  products.push({
+    id:Date.now(),
+    name:pName.value,
+    price:Number(pPrice.value),
+    image:pImage.value
+  });
+  localStorage.setItem("products",JSON.stringify(products));
+  alert("Product Added!");
+  displayProducts();
+}
+
+// AUTO LOGIN
+if(localStorage.getItem("loggedInUser")){
+  showShop();
+}
+
+</script>
+
+</body>
+</html>
